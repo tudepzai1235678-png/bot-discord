@@ -18,10 +18,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot Mini World is running online 24/7!")
 
-    def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-
     def log_message(self, format, *args):
         return  # Tắt log HTTP dư thừa
 
@@ -390,7 +386,7 @@ async def check_cmd(ctx, target_id: str = None):
     embed.add_field(name="📡 Trạng thái", value="Đang hoạt động", inline=True)
 
     perm_items = [i for i in server_items if i.get("ExpireTime") == -1]
-    temp_items = [i for i in server_items if i.get("ExpireTime"] != -1]
+    temp_items = [i for i in server_items if i.get("ExpireTime") != -1]
 
     items_str = ""
     for idx, item in enumerate(server_items[:10], 1):
