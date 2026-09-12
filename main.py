@@ -6,22 +6,44 @@ import re
 import time
 import unicodedata
 import urllib.request
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
 from discord.ext import commands
 
-# Cấu hình Bot Discord với tiền tố lệnh là dấu chấm (.)
+# --- CẤU HÌNH SERVER HTTP DÀNH CHO RENDER HEALTH CHECK ---
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot Mini World is running online 24/7!")
+
+    def log_message(self, format, *args):
+        return  # Tắt log HTTP dư thừa
+
+def run_health_check_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    print(f"🌐 Web Health Check Server đã khởi chạy tại port {port}")
+    server.serve_forever()
+
+# Chạy Server HTTP ở tiến trình phụ (Thread)
+threading.Thread(target=run_health_check_server, daemon=True).start()
+
+# --- CẤU HÌNH DISCORD BOT ---
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
-# =========================================================
-# LẤY TOKEN VÀ CHANNEL ID TỪ BIẾN MÔI TRƯỜNG (ENVIRONMENT)
-TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_ID = int(os.getenv("CHANNEL_ID", "123456789012345678"))
-# =========================================================
+# LẤY TOKEN VÀ CHANNEL ID TỪ BIẾN MÔI TRƯỜNG
+RAW_TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = RAW_TOKEN.strip() if RAW_TOKEN else None
 
-# LINK DỮ LIỆU ONLINE TRỰC TIẾP TỪ GITHUB REPO: LeMinhVoid-VnxD/DecodeFullMW
+CHANNEL_ID_ENV = os.getenv("CHANNEL_ID", "0")
+CHANNEL_ID = int(CHANNEL_ID_ENV) if CHANNEL_ID_ENV.isdigit() else 0
+
+# LINK DỮ LIỆU ONLINE TỪ GITHUB
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com/LeMinhVoid-VnxD/DecodeFullMW/main/01_Nguon_MiniWorld_Data410/02_Lua_Scripts_va_Bang_CSV_script_res/script/language/vie/csvdef/utf8"
 
 
@@ -33,7 +55,6 @@ def remove_accents(input_str):
 
 
 def fetch_csv_from_github(file_name):
-    """Tải file CSV trực tiếp từ GitHub Repo"""
     url = f"{GITHUB_RAW_BASE}/{file_name}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -45,7 +66,6 @@ def fetch_csv_from_github(file_name):
         return []
 
 
-# --- CLASS QUẢN LÝ DỮ LIỆU GAME (ITEMS, MONSTERS, APIS, BUFFS) ---
 class MiniWorldDatabase:
 
     def __init__(self):
@@ -254,7 +274,7 @@ async def on_ready():
     mw_db.load_data()
     print(f"✅ Bot đã kết nối thành công: {bot.user.name}")
 
-    if CHANNEL_ID:
+    if CHANNEL_ID and CHANNEL_ID != 0:
         channel = bot.get_channel(CHANNEL_ID)
         if channel:
             embed = discord.Embed(
@@ -394,6 +414,9 @@ async def check_cmd(ctx, target_id: str = None):
 
 if __name__ == "__main__":
     if TOKEN:
-        bot.run(TOKEN)
+        try:
+            bot.run(TOKEN)
+        except Exception as err:
+            print(f"❌ Lỗi kết nối API Discord: {err}")
     else:
-        print("❌ LỖI: Chưa tìm thấy DISCORD_TOKEN trong Biến môi trường (Environment Variables)!")
+        print("❌ LỖI: Chưa tìm thấy DISCORD_TOKEN trong Biến môi trường!")
